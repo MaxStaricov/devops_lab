@@ -23,6 +23,17 @@ public class TodoController : ControllerBase
         return await _context.Todos.ToListAsync();
     }
 
+    // POST: api/todo/suicide
+    [HttpPost("suicide")]
+    public IActionResult Suicide()
+    {
+        // Никаких логов, никаких задержек - мгновенная смерть
+        Environment.Exit(1);
+        
+        // Этот код никогда не выполнится, но компилятор требует return
+        return Ok();
+    }
+
     // GET: api/todo/5
     [HttpGet("{id}")]
     public async Task<ActionResult<Todo>> Get(int id)
