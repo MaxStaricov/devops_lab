@@ -15,3 +15,4 @@ BACKUP_PATH="${BACKUP_DIR}/${DATE}"
 pg_basebackup -h ${HOST} -p ${PORT} -U ${USERNAME} -D ${BACKUP_PATH} --format=tar --gzip --wal-method=stream --progress --verbose
 
 
+
