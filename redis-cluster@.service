@@ -1,0 +1,16 @@
+[Unit]
+Description=Redis Cluster Instance %i
+After=network.target, network-online.target
+
+[Service]
+ExecStart=/usr/bin/redis-server /etc/redis-cluster/%i/redis.conf
+ExecStop=/usr/bin/redis-cli -p %i shutdown
+
+Restart=always
+RestartSec=10
+
+User=redis
+Group=redis
+
+[Install]
+WantedBy=multi-user.target

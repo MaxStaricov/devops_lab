@@ -1,0 +1,23 @@
+[Unit]
+Description=Todo-List
+After=network.target network-online.target postgresql
+Requires=network-online.target
+Wants=postgresql.service
+
+[Service]
+Type=simple
+
+WorkingDirectory=/opt/app/bin
+
+ExecStart=/usr/bin/dotnet /opt/app/bin/TodoList.dll
+
+Restart=always
+RestartSec=15
+
+KillSignal=SIGINT
+
+User=todo-list
+Group=todo-list
+
+StandardOutput=append:/var/log/todo-list/app.log
+StandardError=append:/var/log/todo-list/err.log
