@@ -21,3 +21,6 @@ Group=todo-list
 
 StandardOutput=append:/var/log/todo-list/app.log
 StandardError=append:/var/log/todo-list/err.log
+
+[Install]
+WantedBy=multi-user.target
