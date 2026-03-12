@@ -1,0 +1,14 @@
+[Unit]
+Description=Redis Exporter for Redis node 7000
+After=network.target, network-online.target
+
+[Service]
+User=nobody
+ExecStart=/usr/local/bin/redis_exporter \
+  --redis.addr redis://127.0.0.1:7000 \
+  --web.listen-address :8000
+
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
