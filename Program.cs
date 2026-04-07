@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Data;
 using Models;
 using Controllers;
+using Prometheus;
 
 var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
 
@@ -21,6 +22,14 @@ var app = builder.Build();
 
 app.UseSwagger();
 app.UseSwaggerUI(); 
+
+// Middleware для экспорта метрик Prometheus
+app.UseRouting();
+
+app.UseHttpMetrics(); // собирает базовые HTTP метрики
+
+app.MapMetrics(); // создаёт endpoint /metrics
+
 
 app.MapControllers();
 app.Run();
