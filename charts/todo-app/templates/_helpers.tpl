@@ -18,7 +18,7 @@
 {{- define "todo-app.labels" -}}
 app.kubernetes.io/name: {{ include "todo-app.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/version: {{ .Chart.AppVersion }}
+app.kubernetes.io/version: "{{ .Chart.AppVersion }}"
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 environment: {{ .Values.environment }}
 {{- end }}

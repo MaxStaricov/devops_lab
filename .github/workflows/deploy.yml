@@ -1,3 +1,4 @@
+# .github/workflows/deploy.yml
 name: Build & Deploy
 
 on:
@@ -18,15 +19,25 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ghcr.io/maxstaricov/devops_lab
-  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+  CHART_PATH: charts/todo-app
+  APP_NAME: todo-app
+
+# 🔒 Защита от параллельных запусков в одном окружении
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'dev' }}
+  cancel-in-progress: false
 
 jobs:
   deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'dev' }}
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
+      # 🔐 Вход в GHCR
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -34,7 +45,8 @@ jobs:
           username: ${{ secrets.GHCR_USER }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Build and push
+      # 🏗️ Сборка и пуш образа
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -43,41 +55,69 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
             ${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Setup Helm
-        uses: azure/setup-helm@v4
+      # 📦 Копирование чарта на сервер
+      - name: Copy Helm chart to k3s server
+        uses: appleboy/scp-action@v1
         with:
-          version: v3.16.0
+          host: ${{ secrets.K3S_HOST }}
+          username: ${{ secrets.K3S_USER }}
+          key: ${{ secrets.K3S_SSH_KEY }}
+          source: ${{ env.CHART_PATH }}
+          target: /opt/helm-charts
+          strip_components: 1
 
-      - name: Render Helm manifests
-        id: render
-        run: |
-          helm template todo-app charts/todo-app \
-            --namespace ${{ env.ENVIRONMENT }} \
-            -f charts/todo-app/values.yaml \
-            -f charts/todo-app/values-${{ env.ENVIRONMENT }}.yaml \
-            --set image.tag=${{ github.sha }} \
-            | base64 -w0 > /tmp/manifest.b64
-          echo "manifest=$(cat /tmp/manifest.b64)" >> $GITHUB_OUTPUT
-
-      - name: Deploy to k3s (${{ env.ENVIRONMENT }})
+      # 🚀 Деплой через Helm (правильный подход!)
+      - name: Deploy with Helm
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.K3S_HOST }}
           username: ${{ secrets.K3S_USER }}
-          password: ${{ secrets.K3S_PASSWORD }}
+          key: ${{ secrets.K3S_SSH_KEY }}
           script: |
-            kubectl create namespace ${{ env.ENVIRONMENT }} \
-              --dry-run=client -o yaml | kubectl apply -f -
-
+            set -euo pipefail
+            
+            ENV="${{ github.event.inputs.environment || 'dev' }}"
+            KUBECONFIG="/etc/rancher/k3s/k3s.yaml"
+            CHART="/opt/helm-charts/todo-app"
+            IMAGE_TAG="${{ github.sha }}"
+            
+            # Создаём/обновляем secret для pull из GHCR
             kubectl create secret docker-registry ghcr-secret \
-              --namespace ${{ env.ENVIRONMENT }} \
+              --namespace "$ENV" \
               --docker-server=${{ env.REGISTRY }} \
               --docker-username=${{ secrets.GHCR_USER }} \
               --docker-password=${{ secrets.GHCR_TOKEN }} \
-              --dry-run=client -o yaml | kubectl apply -f -
+              --dry-run=client -o yaml | kubectl apply --kubeconfig="$KUBECONFIG" -f -
+            
+            # 🔥 Helm-деплой с автоматическим созданием namespace и метками
+            helm upgrade --install ${{ env.APP_NAME }} "$CHART" \
+              --namespace "$ENV" \
+              --kubeconfig "$KUBECONFIG" \
+              -f "$CHART/values.yaml" \
+              -f "$CHART/values-$ENV.yaml" \
+              --set image.tag="$IMAGE_TAG" \
+              --set image.pullSecrets[0].name=ghcr-secret \
+              --create-namespace \
+              --wait --timeout 5m \
+              --atomic
+            
+            # Финальная проверка
+            kubectl rollout status deployment/${{ env.APP_NAME }} \
+              --namespace "$ENV" --kubeconfig "$KUBECONFIG" --timeout=3m
+            
+            echo "✅ Deployed ${{ env.APP_NAME }}@$IMAGE_TAG to $ENV"
 
-            echo '${{ steps.render.outputs.manifest }}' | base64 -d | kubectl apply -f -
-
-            kubectl rollout status deployment/todo-app \
-              -n ${{ env.ENVIRONMENT }} --timeout=3m
+      # 🧹 Очистка старых образов (опционально, для экономии места)
+      - name: Cleanup old images on server
+        uses: appleboy/ssh-action@v1
+        if: always()
+        with:
+          host: ${{ secrets.K3S_HOST }}
+          username: ${{ secrets.K3S_USER }}
+          key: ${{ secrets.K3S_SSH_KEY }}
+          script: |
+            # Оставляем последние 3 образа, удаляем остальные
+            crictl rmi --prune || true
