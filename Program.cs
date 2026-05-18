@@ -23,13 +23,17 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI(); 
 
-// Middleware для экспорта метрик Prometheus
 app.UseRouting();
 
-app.UseHttpMetrics(); // собирает базовые HTTP метрики
+app.UseHttpMetrics();
 
-app.MapMetrics(); // создаёт endpoint /metrics
-
+app.MapMetrics();
 
 app.MapControllers();
+
+app.Lifetime.ApplicationStopping.Register(() =>
+{
+    redis.Close();
+});
+
 app.Run();
