@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ghcr.io/maxstaricov/devops_lab
 
 jobs:
   deploy:
@@ -30,8 +30,8 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
 
       - name: Deploy to k3s
         uses: appleboy/ssh-action@v1
@@ -41,5 +41,5 @@ jobs:
           password: ${{ secrets.K3S_PASSWORD }}
           script: |
             kubectl set image deployment/todo-app \
-              app=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+              app=${{ env.IMAGE_NAME }}:${{ github.sha }}
             kubectl rollout status deployment/todo-app --timeout=3m
