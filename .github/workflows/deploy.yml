@@ -41,7 +41,7 @@ jobs:
           kubectl create secret docker-registry ghcr-secret \
             --namespace ${{ steps.resolve.outputs.env }} \
             --docker-server=ghcr.io \
-            --docker-username=${{ secrets.GHCR_USERN }} \
+            --docker-username=${{ secrets.GHCR_USER }} \
             --docker-password=${{ secrets.GHCR_TOKEN }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
