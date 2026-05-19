@@ -41,13 +41,13 @@ jobs:
           kubectl create secret docker-registry ghcr-secret \
             --namespace ${{ steps.resolve.outputs.env }} \
             --docker-server=ghcr.io \
-            --docker-username=${{ secrets.GHCR_USER }} \
+            --docker-username=${{ secrets.GHCR_USERN }} \
             --docker-password=${{ secrets.GHCR_TOKEN }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Helm
         run: |
-          helm upgrade --install todo-app ./app/charts/todo-app \
+          helm upgrade --install todo-app ./charts/todo-app \
             --namespace ${{ steps.resolve.outputs.env }} \
             -f ./app/charts/todo-app/values.yaml \
             -f ./app/charts/todo-app/values-${{ steps.resolve.outputs.env }}.yaml \
