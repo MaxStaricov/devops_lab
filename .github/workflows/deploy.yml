@@ -1,0 +1,68 @@
+name: Deploy todo-app
+
+on:
+  push:
+    branches: [dev, qa, master]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: dev
+        type: choice
+        options: [dev, qa, prod]
+
+jobs:
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve environment
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+          elif [ "${{ github.ref_name }}" = "master" ]; then
+            ENV="prod"
+          elif [ "${{ github.ref_name }}" = "qa" ]; then
+            ENV="qa"
+          else
+            ENV="dev"
+          fi
+          echo "env=${ENV}" >> $GITHUB_OUTPUT
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+
+      - name: Apply namespace
+        run: |
+          kubectl apply -f namespaces/${{ steps.resolve.outputs.env }}/namespace.yaml
+
+      - name: Create pull secret
+        run: |
+          kubectl create secret docker-registry ghcr-secret \
+            --namespace ${{ steps.resolve.outputs.env }} \
+            --docker-server=ghcr.io \
+            --docker-username=${{ secrets.GHCR_USERNAME }} \
+            --docker-password=${{ secrets.GHCR_TOKEN }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install todo-app ./app/charts/todo-app \
+            --namespace ${{ steps.resolve.outputs.env }} \
+            -f ./app/charts/todo-app/values.yaml \
+            -f ./app/charts/todo-app/values-${{ steps.resolve.outputs.env }}.yaml \
+            --atomic --wait --timeout 3m
+
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/todo-app \
+            --namespace ${{ steps.resolve.outputs.env }} --timeout=2m
