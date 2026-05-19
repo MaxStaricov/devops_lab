@@ -9,10 +9,9 @@ imagePullSecrets:
   - name: ghcr-secret
 
 service:
-  type: NodePort
+  type: ClusterIP
   port: 80
   targetPort: 8080
-  nodePort: 30080
 
 resources:
   limits:
