@@ -3,14 +3,6 @@ name: Deploy todo-app
 on:
   push:
     branches: [dev, qa, master]
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: Target environment
-        required: true
-        default: dev
-        type: choice
-        options: [dev, qa, prod]
 
 jobs:
   deploy:
