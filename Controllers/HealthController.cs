@@ -11,7 +11,7 @@ public class HealthController : ControllerBase
     {
         return Ok(new
         {
-            status = "ok",
+            status = "Все зашибись. Пока живу.",
             node = Environment.MachineName
         });
     }
